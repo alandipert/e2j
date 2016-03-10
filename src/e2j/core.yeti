@@ -7,6 +7,12 @@ import org.apache.commons.lang3.StringEscapeUtils;
 import us.bpsm.edn: Keyword, Symbol;
 import us.bpsm.edn.parser: Parser, Parsers;
 
+effect f = (_ = f());
+
+forEach xs f = effect do:
+  fold (_ i x = (f i x; i + 1)) 0 xs;
+  done;
+
 makeEdnParser r is ~Readable -> (() -> Some ~Object) =
   (config = Parsers#defaultConfiguration();
    input  = Parsers#newParseable(r);
@@ -14,20 +20,6 @@ makeEdnParser r is ~Readable -> (() -> Some ~Object) =
    do:
      val = parser#nextValue(input);
      if (same? val Parser#END_OF_INPUT) then None () else Some val fi
-   done);
-
-effect f = (_ = f());
-
-interlay eachf betweenf xs =
-  (lastIdx = length xs - 1;
-   effect do:
-     fold do i x:
-       eachf x;
-       if i != lastIdx then betweenf() fi;
-       i + 1
-     done
-     0
-     xs
    done);
 
 getEntries m is ~Map -> list?<~Map$Entry> =
@@ -46,17 +38,26 @@ writeJson w edn is ~Writer -> ~Object -> () =
   elif edn instanceof String then
     w#write("\"" ^ StringEscapeUtils#escapeJson(edn unsafely_as ~String) ^ "\"")
   elif edn instanceof List then
+    xs      = (edn unsafely_as ~List)#toArray();
+    lastIdx = length xs - 1;
     w#write("[");
-    interlay (writeJson w) \(w#write(",")) (edn unsafely_as ~List)#toArray();
+    forEach xs do i x:
+      writeJson w x;
+      if i != lastIdx then w#write(",") fi
+    done;
     w#write("]")
   elif edn instanceof Map then
     entries = getEntries (edn unsafely_as ~Map);
+    lastIdx = length entries - 1;
     writeEntry entry is ~Map$Entry -> () =
       (writeJson w entry#getKey();
        w#write(":");
        writeJson w entry#getValue());
     w#write("{");
-    interlay writeEntry \w#write(",") entries;
+    forEach entries do i entry:
+      writeEntry entry;
+      if i != lastIdx then w#write(",") fi
+    done;
     w#write("}")
   else failWith "Unknown EDN class: \(edn#getClass())"
   fi;
@@ -69,7 +70,7 @@ ednToJson rdr wrt is ~Readable-> ~Writer -> () =
    esac;
    doParse (next()));
 
-withIo f =
+withIO f =
   (rdr = new InputStreamReader(System#in);
    wrt = new PrintWriter(System#out);
    f (rdr as ~Readable) (wrt as ~Writer);
@@ -78,14 +79,14 @@ withIo f =
 
 usage = "e2j $VERSION$ - convert between EDN and JSON.
 Usage: e2j [-hej]\n
--e Expect EDN, produce JSON (default)
--j Expect JSON, produce EDN
+-e EDN in, JSON out (default)
+-j JSON in, EDN out
 -h Print this message";
 
 main argv =
   case argv of
-  []: withIo ednToJson;
-  ["-e"]: withIo ednToJson;
+  []: withIO ednToJson;
+  ["-e"]: withIO ednToJson;
   ["-j"]: println "Unimplemented";
   _: println usage
   esac;
