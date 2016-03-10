@@ -1,0 +1,97 @@
+module e2j.core;
+
+import java.io: InputStreamReader, PrintWriter, Writer;
+import java.lang.Readable;
+import java.util: List, Map, Map$Entry;
+import org.apache.commons.lang3.StringEscapeUtils;
+import us.bpsm.edn: Keyword, Symbol;
+import us.bpsm.edn.parser: Parser, Parsers;
+
+makeEdnParser r is ~Readable -> (() -> Some ~Object) =
+  (config = Parsers#defaultConfiguration();
+   input  = Parsers#newParseable(r);
+   parser = Parsers#newParser(config);
+   do:
+     val = parser#nextValue(input);
+     if (same? val Parser#END_OF_INPUT) then None () else Some val fi
+   done);
+
+effect f = (_ = f());
+
+interlay eachf betweenf xs =
+  (lastIdx = length xs - 1;
+   effect do:
+     fold do i x:
+       eachf x;
+       if i != lastIdx then betweenf() fi;
+       i + 1
+     done
+     0
+     xs
+   done);
+
+getEntries m is ~Map -> list?<~Map$Entry> =
+  map (_ x = x unsafely_as ~Map$Entry) m#entrySet()#toArray();
+
+writeJson w edn is ~Writer -> ~Object -> () =
+  if nullptr? edn then
+    w#write("null");
+  elif edn instanceof Keyword then
+    w#write("\"" ^  strRight (string edn) 1 ^ "\"")
+  elif edn instanceof Symbol then
+    w#write("\"" ^ edn#toString() ^ "\"")
+  elif edn instanceof Long
+    or edn instanceof Double
+    or edn instanceof Boolean then
+    w#write(edn#toString())
+  elif edn instanceof String then
+    w#write("\"" ^ StringEscapeUtils#escapeJson(edn unsafely_as ~String) ^ "\"")
+  elif edn instanceof List then
+    w#write("[");
+    interlay (writeJson w) \(w#write(",")) (edn unsafely_as ~List)#toArray();
+    w#write("]")
+  elif edn instanceof Map then
+    entries = getEntries (edn unsafely_as ~Map);
+    writeEntry entry is ~Map$Entry -> () =
+      (writeJson w entry#getKey();
+       w#write(":");
+       writeJson w entry#getValue());
+    w#write("{");
+    interlay writeEntry \w#write(",") entries;
+    w#write("}")
+  else failWith "Unknown EDN class: \(edn#getClass())"
+  fi;
+
+ednToJson rdr wrt is ~Readable-> ~Writer -> () =
+  (next = makeEdnParser rdr;
+   doParse = \case of
+   Some edn: (writeJson wrt edn; wrt#flush(); print "\n"; doParse (next()));
+   None (): ()
+   esac;
+   doParse (next()));
+
+withIo f =
+  (rdr = new InputStreamReader(System#in);
+   wrt = new PrintWriter(System#out);
+   f (rdr as ~Readable) (wrt as ~Writer);
+   wrt#flush();
+   rdr#close());
+
+usage = "e2j $VERSION$ - convert between EDN and JSON.
+Usage: e2j [-hej]\n
+-e Expect EDN, produce JSON (default)
+-j Expect JSON, produce EDN
+-h Print this message";
+
+main argv =
+  case argv of
+  []: withIo ednToJson;
+  ["-e"]: withIo ednToJson;
+  ["-j"]: println "Unimplemented";
+  _: println usage
+  esac;
+
+class Main
+    static void main(String[] argv)
+        (main(map string argv));
+end;
