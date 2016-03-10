@@ -36,9 +36,8 @@ getEntries m is ~Map -> list?<~Map$Entry> =
 writeJson w edn is ~Writer -> ~Object -> () =
   if nullptr? edn then
     w#write("null");
-  elif edn instanceof Keyword then
-    w#write("\"" ^  strRight (string edn) 1 ^ "\"")
-  elif edn instanceof Symbol then
+  elif edn instanceof Keyword
+    or edn instanceof Symbol then
     w#write("\"" ^ edn#toString() ^ "\"")
   elif edn instanceof Long
     or edn instanceof Double
