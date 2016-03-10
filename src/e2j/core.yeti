@@ -64,7 +64,7 @@ writeJson w edn is ~Writer -> ~Object -> () =
 ednToJson rdr wrt is ~Readable-> ~Writer -> () =
   (next = makeEdnParser rdr;
    doParse = \case of
-   Some edn: (writeJson wrt edn; wrt#flush(); print "\n"; doParse (next()));
+   Some edn: (writeJson wrt edn; wrt#write("\n"); doParse (next()));
    None (): ()
    esac;
    doParse (next()));
