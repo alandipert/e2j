@@ -9,7 +9,7 @@ import us.bpsm.edn.parser: Parser, Parsers;
 
 effect f = (_ = f());
 
-forEach xs f = effect do:
+eachIndexed xs f = effect do:
   fold (_ i x = (f i x; i + 1)) 0 xs;
   done;
 
@@ -41,7 +41,7 @@ writeJson w edn is ~Writer -> ~Object -> () =
     xs      = (edn unsafely_as ~List)#toArray();
     lastIdx = length xs - 1;
     w#write("[");
-    forEach xs do i x:
+    eachIndexed xs do i x:
       writeJson w x;
       if i != lastIdx then w#write(",") fi
     done;
@@ -54,7 +54,7 @@ writeJson w edn is ~Writer -> ~Object -> () =
        w#write(":");
        writeJson w entry#getValue());
     w#write("{");
-    forEach entries do i entry:
+    eachIndexed entries do i entry:
       writeEntry entry;
       if i != lastIdx then w#write(",") fi
     done;
