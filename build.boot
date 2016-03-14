@@ -56,8 +56,7 @@
         (core/empty-dir! tmp)
         (util/info "Running ProGuard...\n")
         (util/without-exiting
-         (pod/with-eval-in @pod (proguard.ProGuard/main (into-array ~args))))
-        (println (.getAbsolutePath tmp))
+         (pod/with-eval-in @pod (proguard.ProGuard/main (into-array ~args)))) 
         (-> fs
             (core/add-resource tmp)
             core/commit!)))))
