@@ -36,9 +36,9 @@
         fs))))
 
 (core/deftask proguard
-  [c proguard-config PATH str "ProGuard config fileset-relative path"
-   i input-jar       NAME str "input jar name"
-   o output-jar      NAME str "output jar name"]
+  [c config     PATH str "ProGuard config fileset-relative path"
+   i input-jar  NAME str "input jar name"
+   o output-jar NAME str "output jar name"]
   (let [tmp (core/tmp-dir!)
         pod (->> '[net.sf.proguard/proguard-base "5.2.1"]
                  (update pod/env :dependencies (fnil conj []))
@@ -72,7 +72,7 @@
 
 (deftask package
   []
-  (comp (proguard :proguard-config "config.pro"
+  (comp (proguard :config "config.pro"
                   :input-jar "e2j.jar"
                   :output-jar "e2j-optimized.jar")
         (sift :include #{#"\.jar$"})
