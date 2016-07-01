@@ -45,7 +45,7 @@
                  pod/make-pod
                  future)]
     (with-pre-wrap [fs]
-      (let [cfg    (first (core/by-path [proguard-config] (core/input-files fs)))
+      (let [cfg    (first (core/by-path [config] (core/input-files fs)))
             in-jar (first (core/by-name [input-jar] (core/input-files fs)))
             libs   (interleave (repeat "-libraryjars") (.split (System/getProperty "boot.class.path") ":"))
             args   (into [(str "@"       (.getAbsolutePath (tmp-file cfg)))
