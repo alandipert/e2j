@@ -2,6 +2,7 @@
  :source-paths #{"src"}
  :dependencies '[[alandipert/boot-yeti             "1.0.0-1" :scope "test"]
                  [alandipert/boot-trinkets         "2.0.0"   :scope "test"]
+                 [commons-io                       "2.5"     :scope "test"]
                  [alandipert/yeti-lib              "0.9.9.1" :scope "runtime"]
                  [us.bpsm/edn-java                 "0.4.6"   :scope "runtime"]
                  [org.apache.commons/commons-lang3 "3.4"     :scope "runtime"]])
@@ -12,6 +13,9 @@
          '[boot.util :as util]
          '[boot.core :as core]
          '[boot.pod :as pod])
+
+(import 'org.apache.commons.io.IOUtils
+        'java.io.ByteArrayOutputStream)
 
 (def +version+ "1.0.0")
 
@@ -61,6 +65,26 @@
             (core/add-resource tmp)
             core/commit!)))))
 
+(core/deftask make-executable-jar
+  [i input-jar         NAME str "input jar name"
+   o output-executable NAME str "output executable name"]
+  (let [tmp (core/tmp-dir!)]
+    (with-pre-wrap [fs]
+      (let [in-jar (first (core/by-name [input-jar] (core/input-files fs)))]
+        (core/empty-dir! tmp)
+        (util/info "Making executable jar...\n")
+        (with-open [baos (ByteArrayOutputStream.)]
+          (.write baos (.getBytes "#!/usr/bin/env bash
+exec java -jar \"$0\" \"$@\"
+"))
+          (.write baos (IOUtils/toByteArray (io/input-stream (tmp-file in-jar))))
+          (let [outfile (doto (io/file tmp output-executable) io/make-parents)]
+            (io/copy (.toByteArray baos) outfile)
+            (util/dosh "/bin/chmod" "u+x" (.getAbsolutePath outfile))
+            (-> fs
+                (core/add-resource tmp)
+                core/commit!)))))))
+
 (deftask build
   []
   (comp (string-replace :path "e2j/core.yeti"
@@ -72,8 +96,12 @@
 
 (deftask package
   []
-  (comp (proguard :config "config.pro"
+  (comp (build)
+        (proguard :config "config.pro"
                   :input-jar "e2j.jar"
                   :output-jar "e2j-optimized.jar")
-        (sift :include #{#"\.jar$"})
+        (sift :include #{#"e2j-optimized.jar$"})
+        (make-executable-jar :input-jar "e2j-optimized.jar"
+                             :output-executable "e2j")
+        (sift :include #{#"e2j$"})
         (target)))
